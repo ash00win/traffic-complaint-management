@@ -1,25 +1,32 @@
 from rest_framework import generics, permissions
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import SearchFilter, OrderingFilter
+
 from .models import Complaint
 from .serializers import ComplaintSerializer
 from .permissions import IsPoliceOrAdmin
 
+
 class ComplaintListCreateView(generics.ListCreateAPIView):
     serializer_class = ComplaintSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
-    def get_permissions(self):
-        if self.request.method == 'GET':
-            return [permissions.IsAuthenticated()]
-        return [permissions.IsAuthenticated()]
+    # STEP 18 additions
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['status']
+    search_fields = ['title', 'location']
+    ordering_fields = ['created_at']
+    ordering = ['-created_at']
 
     def get_queryset(self):
         user = self.request.user
 
         # Police/Admin see all complaints
         if user.role in ['police', 'admin']:
-            return Complaint.objects.all().order_by('-created_at')
+            return Complaint.objects.all()
 
         # Citizens see only their complaints
-        return Complaint.objects.filter(user=user).order_by('-created_at')
+        return Complaint.objects.filter(user=user)
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
